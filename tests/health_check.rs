@@ -1,11 +1,12 @@
+use std::net::{SocketAddr, TcpListener};
+
 #[tokio::test]
 async fn health_check() {
-    spawn_app();
-
+    let local_addr = spawn_app();
     let client = reqwest::Client::new();
 
     let resp = client
-        .get("http://127.0.0.1:8000/health_check")
+        .get(format!("http://{local_addr}/health_check"))
         .send()
         .await
         .expect("failed to execute request.");
@@ -14,8 +15,12 @@ async fn health_check() {
     assert_eq!(resp.content_length(), Some(0));
 }
 
-fn spawn_app() {
-    let server = zero2prod::run().expect("failed to bind address");
+fn spawn_app() -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
+    let local_addr = listener
+        .local_addr()
+        .expect("failed to get the local address");
+    let server = zero2prod::run(listener).expect("failed to listen");
 
     // Spawn thread to avoid the clippy error.
     //
@@ -26,4 +31,6 @@ fn spawn_app() {
             let _ = tokio::spawn(server).await;
         });
     });
+
+    local_addr
 }
