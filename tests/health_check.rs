@@ -1,6 +1,6 @@
 use std::net::{SocketAddr, TcpListener};
 
-use sqlx::{Connection, PgConnection};
+use sqlx::PgPool;
 
 #[tokio::test]
 async fn health_check() {
@@ -21,7 +21,7 @@ async fn health_check() {
 async fn subscribe_success() {
     let local_addr = spawn_app();
     let config = zero2prod::get_config().expect("failed to read config.yaml");
-    let mut db_conn = PgConnection::connect(&config.database.connection_string())
+    let db_pool = PgPool::connect(&config.database.connection_string())
         .await
         .expect("failed to connect to database");
     let client = reqwest::Client::new();
@@ -39,7 +39,7 @@ async fn subscribe_success() {
 
     // check the state in the database.
     let saved = sqlx::query!("SELECT email, name FROM subscriptions")
-        .fetch_one(&mut db_conn)
+        .fetch_one(&db_pool)
         .await
         .expect("failed to fetch saved subscription");
     assert_eq!(saved.email, "test@gmail.com");
@@ -87,10 +87,10 @@ fn spawn_app() -> SocketAddr {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             let config = zero2prod::get_config().expect("failed to read config.yaml");
-            let connection = PgConnection::connect(&config.database.connection_string())
+            let db_pool = PgPool::connect(&config.database.connection_string())
                 .await
                 .expect("failed to connect to database");
-            let server = zero2prod::run(listener, connection).expect("failed to listen");
+            let server = zero2prod::run(listener, db_pool).expect("failed to listen");
             let _ = tokio::spawn(server).await;
         });
     });
