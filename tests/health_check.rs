@@ -21,8 +21,7 @@ async fn health_check() {
 async fn subscribe_success() {
     let local_addr = spawn_app();
     let config = zero2prod::get_config().expect("failed to read config.yaml");
-    let db_connection_string = config.database.connection_string();
-    let mut db_connection = PgConnection::connect(&db_connection_string)
+    let mut db_conn = PgConnection::connect(&config.database.connection_string())
         .await
         .expect("failed to connect to database");
     let client = reqwest::Client::new();
@@ -40,7 +39,7 @@ async fn subscribe_success() {
 
     // check the state in the database.
     let saved = sqlx::query!("SELECT email, name FROM subscriptions")
-        .fetch_one(&mut db_connection)
+        .fetch_one(&mut db_conn)
         .await
         .expect("failed to fetch saved subscription");
     assert_eq!(saved.email, "test@gmail.com");
@@ -80,14 +79,18 @@ fn spawn_app() -> SocketAddr {
     let local_addr = listener
         .local_addr()
         .expect("failed to get the local address");
-    let server = zero2prod::run(listener).expect("failed to listen");
 
     // Spawn thread to avoid the clippy error.
     //
     // https://rust-lang.github.io/rust-clippy/master/index.html#let_underscore_future
-    std::thread::spawn(|| {
+    std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
+            let config = zero2prod::get_config().expect("failed to read config.yaml");
+            let connection = PgConnection::connect(&config.database.connection_string())
+                .await
+                .expect("failed to connect to database");
+            let server = zero2prod::run(listener, connection).expect("failed to listen");
             let _ = tokio::spawn(server).await;
         });
     });
