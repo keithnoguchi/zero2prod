@@ -6,5 +6,5 @@ mod configuration;
 mod routes;
 mod startup;
 
-pub use configuration::get_config;
+pub use configuration::{get_config, DatabaseSettings};
 pub use startup::run;
