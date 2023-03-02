@@ -6,13 +6,58 @@ async fn health_check() {
     let client = reqwest::Client::new();
 
     let resp = client
-        .get(format!("http://{local_addr}/health_check"))
+        .get(&format!("http://{local_addr}/health_check"))
         .send()
         .await
         .expect("failed to execute request.");
 
     assert!(resp.status().is_success());
     assert_eq!(resp.content_length(), Some(0));
+}
+
+#[tokio::test]
+async fn subscribe_success() {
+    let local_addr = spawn_app();
+    let client = reqwest::Client::new();
+
+    let body = "name=test%20name&email=test%40gmail.com";
+    let resp = client
+        .post(&format!("http://{local_addr}/subscriptions"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(body)
+        .send()
+        .await
+        .expect("failed to execute request.");
+
+    assert_eq!(resp.status().as_u16(), 200);
+}
+
+#[tokio::test]
+async fn subscribe_wrong_body() {
+    let local_addr = spawn_app();
+    let client = reqwest::Client::new();
+    let test_cases = vec![
+        ("name=test%20name", "missing the email"),
+        ("email=test%40gmail.com", "missing name"),
+        ("", "missing both name and the email"),
+    ];
+
+    for (invalid_body, error_message) in test_cases {
+        let resp = client
+            .post(&format!("http://{local_addr}/subscriptions"))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(invalid_body)
+            .send()
+            .await
+            .expect("failed to execute request.");
+
+        assert_eq!(
+            400,
+            resp.status().as_u16(),
+            "The API did not fail with 400 Bad Request when the payload was {}.",
+            error_message,
+        );
+    }
 }
 
 fn spawn_app() -> SocketAddr {
