@@ -30,7 +30,7 @@ jobs:
       - name: Install Rust
         run: rustup update stable
       - name: Initialize the database
-        run: ./script/init_db.sh
+        run: ./scripts/init_db.sh
       - name: Run cargo test
         run: |
           cargo test --all-features
