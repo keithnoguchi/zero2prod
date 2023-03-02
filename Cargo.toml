@@ -9,6 +9,7 @@ edition = "2021"
 actix-web = "4.3.1"
 config = "0.13.3"
 serde = { version = "1.0.152", features = ["derive"] }
+sqlx = { version = "0.6.2", features = ["runtime-tokio, tls-rustls, postgres"] }
 tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
