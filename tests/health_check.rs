@@ -1,5 +1,7 @@
 use std::net::{SocketAddr, TcpListener};
 
+use sqlx::{Connection, PgConnection};
+
 #[tokio::test]
 async fn health_check() {
     let local_addr = spawn_app();
@@ -18,6 +20,11 @@ async fn health_check() {
 #[tokio::test]
 async fn subscribe_success() {
     let local_addr = spawn_app();
+    let config = zero2prod::get_config().expect("failed to read config.yaml");
+    let db_connection_string = config.database.connection_string();
+    let _db_connection = PgConnection::connect(&db_connection_string)
+        .await
+        .expect("failed to connect to database");
     let client = reqwest::Client::new();
 
     let body = "name=test%20name&email=test%40gmail.com";
