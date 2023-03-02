@@ -1,5 +1,7 @@
 use std::net::{SocketAddr, TcpListener};
 
+use sqlx::PgPool;
+
 #[tokio::test]
 async fn health_check() {
     let local_addr = spawn_app();
@@ -18,6 +20,10 @@ async fn health_check() {
 #[tokio::test]
 async fn subscribe_success() {
     let local_addr = spawn_app();
+    let config = zero2prod::get_config().expect("failed to read config.yaml");
+    let db_pool = PgPool::connect(&config.database.connection_string())
+        .await
+        .expect("failed to connect to database");
     let client = reqwest::Client::new();
 
     let body = "name=test%20name&email=test%40gmail.com";
@@ -30,6 +36,14 @@ async fn subscribe_success() {
         .expect("failed to execute request.");
 
     assert_eq!(resp.status().as_u16(), 200);
+
+    // check the state in the database.
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions")
+        .fetch_one(&db_pool)
+        .await
+        .expect("failed to fetch saved subscription");
+    assert_eq!(saved.email, "test@gmail.com");
+    assert_eq!(saved.name, "test name");
 }
 
 #[tokio::test]
@@ -65,14 +79,18 @@ fn spawn_app() -> SocketAddr {
     let local_addr = listener
         .local_addr()
         .expect("failed to get the local address");
-    let server = zero2prod::run(listener).expect("failed to listen");
 
     // Spawn thread to avoid the clippy error.
     //
     // https://rust-lang.github.io/rust-clippy/master/index.html#let_underscore_future
-    std::thread::spawn(|| {
+    std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
+            let config = zero2prod::get_config().expect("failed to read config.yaml");
+            let db_pool = PgPool::connect(&config.database.connection_string())
+                .await
+                .expect("failed to connect to database");
+            let server = zero2prod::run(listener, db_pool).expect("failed to listen");
             let _ = tokio::spawn(server).await;
         });
     });
