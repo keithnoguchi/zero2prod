@@ -1,4 +1,24 @@
+//! [zero2prod]
+//!
+//! [zero2prod]: https://github.com/LukeMathWalker/zero-to-production/
+
+use std::io::Result;
+
+use actix_web::{web, App, HttpRequest, HttpServer, Responder};
+
 #[tokio::main]
-async fn main() {
-    println!("Hello, tokio!");
+async fn main() -> Result<()> {
+    HttpServer::new(|| {
+        App::new()
+            .route("/", web::get().to(greet))
+            .route("/{name}", web::get().to(greet))
+    })
+    .bind("127.0.0.1:8000")?
+    .run()
+    .await
+}
+
+async fn greet(req: HttpRequest) -> impl Responder {
+    let name = req.match_info().get("name").unwrap_or("Actix");
+    format!("Hello {name}")
 }
