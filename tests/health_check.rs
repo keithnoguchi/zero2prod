@@ -22,7 +22,7 @@ async fn subscribe_success() {
     let local_addr = spawn_app();
     let config = zero2prod::get_config().expect("failed to read config.yaml");
     let db_connection_string = config.database.connection_string();
-    let _db_connection = PgConnection::connect(&db_connection_string)
+    let mut db_connection = PgConnection::connect(&db_connection_string)
         .await
         .expect("failed to connect to database");
     let client = reqwest::Client::new();
@@ -37,6 +37,14 @@ async fn subscribe_success() {
         .expect("failed to execute request.");
 
     assert_eq!(resp.status().as_u16(), 200);
+
+    // check the state in the database.
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions")
+        .fetch_one(&mut db_connection)
+        .await
+        .expect("failed to fetch saved subscription");
+    assert_eq!(saved.email, "test@gmail.com");
+    assert_eq!(saved.name, "test name");
 }
 
 #[tokio::test]
