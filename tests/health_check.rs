@@ -6,11 +6,11 @@ use zero2prod::DatabaseSettings;
 
 #[tokio::test]
 async fn health_check() {
-    let test = TestApp::build().await;
+    let app = TestApp::build().await;
     let client = reqwest::Client::new();
 
     let resp = client
-        .get(&format!("{}/health_check", test.address))
+        .get(&format!("{}/health_check", app.address))
         .send()
         .await
         .expect("failed to execute request.");
@@ -21,12 +21,12 @@ async fn health_check() {
 
 #[tokio::test]
 async fn subscribe_success() {
-    let test = TestApp::build().await;
+    let app = TestApp::build().await;
     let client = reqwest::Client::new();
 
     let body = "name=test%20name&email=test%40gmail.com";
     let resp = client
-        .post(&format!("{}/subscriptions", test.address))
+        .post(&format!("{}/subscriptions", app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -37,7 +37,7 @@ async fn subscribe_success() {
 
     // check the state in the database.
     let saved = sqlx::query!("SELECT email, name FROM subscriptions")
-        .fetch_one(&test.db_pool)
+        .fetch_one(&app.db_pool)
         .await
         .expect("failed to fetch saved subscription");
     assert_eq!(saved.email, "test@gmail.com");
@@ -46,7 +46,7 @@ async fn subscribe_success() {
 
 #[tokio::test]
 async fn subscribe_wrong_body() {
-    let test = TestApp::build().await;
+    let app = TestApp::build().await;
     let client = reqwest::Client::new();
     let test_cases = vec![
         ("name=test%20name", "missing the email"),
@@ -56,7 +56,7 @@ async fn subscribe_wrong_body() {
 
     for (invalid_body, error_message) in test_cases {
         let resp = client
-            .post(&format!("{}/subscriptions", test.address))
+            .post(&format!("{}/subscriptions", app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(invalid_body)
             .send()
@@ -64,8 +64,8 @@ async fn subscribe_wrong_body() {
             .expect("failed to execute request.");
 
         assert_eq!(
-            400,
             resp.status().as_u16(),
+            400,
             "The API did not fail with 400 Bad Request when the payload was {}.",
             error_message,
         );
