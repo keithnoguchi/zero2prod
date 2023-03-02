@@ -8,6 +8,7 @@ use sqlx::PgPool;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    zero2prod::init_subscriber(zero2prod::get_subscriber("zero2prod", "info"));
     let config = zero2prod::get_config().expect("failed to read configuration");
     let addr = format!("127.0.0.1:{}", config.application_port);
     let listener = TcpListener::bind(&addr)?;
